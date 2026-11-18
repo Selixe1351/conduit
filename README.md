@@ -1,6 +1,6 @@
 # Conduit
 
-Save your data in MongoDB and keep it in sync across all your servers. Java 21+.
+Store Kotlin objects in MongoDB and keep their cache in sync across every instance of your application through Redis. Java 21+.
 
 ## Install
 
@@ -17,41 +17,41 @@ dependencies {
 ## 1. Describe your data
 
 ```kotlin
-data class Punishment(val type: String, val reason: String)
+data class Order(val product: String, val amount: Int)
 
-data class Profile(
-    @param:BsonId val uuid: UUID,
+data class User(
+    @param:BsonId val id: UUID,
     var name: String,
-    var coins: Long = 0,
-    val punishments: MutableList<Punishment> = mutableListOf()
+    var balance: Long = 0,
+    val orders: MutableList<Order> = mutableListOf()
 )
 ```
 
-## 2. Connect when your plugin starts
+## 2. Connect on startup
 
 ```kotlin
-val conduit = Conduit("mongodb://localhost:27017", "core", "redis://localhost:6379")
-val profiles = conduit.store<Profile>("profiles")
+val conduit = Conduit("mongodb://localhost:27017", "shop", "redis://localhost:6379")
+val users = conduit.store<User>("users")
 ```
 
 ## 3. Use it
 
 ```kotlin
-profiles.insert(Profile(uuid, "Steve"))
+users.insert(User(id, "Alice"))
 
-val profile = profiles.get(uuid)
+val user = users.get(id)
 
-profiles.update(uuid) {
-    it.coins += 100
-    it.punishments.add(Punishment("MUTE", "Spam"))
+users.update(id) {
+    it.balance += 100
+    it.orders.add(Order("book", 1))
 }
 
-profiles.delete(uuid)
+users.delete(id)
 ```
 
-Every server sees the change straight away.
+Every instance sees the change on its next read.
 
-## 4. Close it when your plugin stops
+## 4. Close on shutdown
 
 ```kotlin
 conduit.close()
@@ -62,37 +62,41 @@ conduit.close()
 Give your data a read-only interface so it can only be changed inside `update`:
 
 ```kotlin
-interface Profile {
-    val uuid: UUID
-    val coins: Long
-    val punishments: List<Punishment>
+interface User {
+    val id: UUID
+    val balance: Long
+    val orders: List<Order>
 }
 
-data class ProfileData(
-    @param:BsonId override val uuid: UUID,
-    override var coins: Long = 0,
-    override val punishments: MutableList<Punishment> = mutableListOf()
-) : Profile
+data class UserData(
+    @param:BsonId override val id: UUID,
+    override var balance: Long = 0,
+    override val orders: MutableList<Order> = mutableListOf()
+) : User
 
-val profiles = conduit.store<Profile, ProfileData>("profiles")
+val users = conduit.store<User, UserData>("users")
 
-profiles.get(uuid)!!.coins += 100          // does not compile
-profiles.update(uuid) { it.coins += 100 }  // works
+users.get(id)!!.balance += 100          // does not compile
+users.update(id) { it.balance += 100 }  // works
 ```
 
 ## More
 
 | | |
 |---|---|
-| `profiles.all()` | every profile |
-| `profiles.findOne(Profile::name, "Steve")` | search by a field |
-| `profiles.find(Profile::coins, 100)` | all matches |
-| `conduit.publish("kick", Kick(uuid))` | send a message to every server |
-| `conduit.subscribe<Kick>("kick") { }` | receive it |
-| `async { }` | run something off the main thread |
+| `users.all()` | every value |
+| `users.findOne(User::name, "Alice")` | search by a field |
+| `users.find(User::balance, 100)` | all matches |
+| `conduit.publish("events", Event(id))` | send a message to every instance |
+| `conduit.subscribe<Event>("events") { }` | receive it |
+| `async { }` | run something on a background thread |
 
 ## Rules
 
 - Mark the id with `@param:BsonId`.
 - Only change data inside `update { }`. Changes made anywhere else are not saved.
-- Give new fields a default value so old profiles still load.
+- Give new fields a default value so existing documents still load.
+
+## License
+
+[MIT](LICENSE)

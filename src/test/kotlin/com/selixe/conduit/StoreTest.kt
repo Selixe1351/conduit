@@ -72,29 +72,29 @@ class StoreTest {
 
     private val redisUri get() = "redis://${redisContainer.host}:${redisContainer.firstMappedPort}"
 
-    private lateinit var serverA: Conduit
-    private lateinit var serverB: Conduit
+    private lateinit var instanceA: Conduit
+    private lateinit var instanceB: Conduit
     private lateinit var profilesA: Store<Profile, Profile>
     private lateinit var profilesB: Store<Profile, Profile>
 
     @BeforeEach
     fun connect() {
         val database = "test-${UUID.randomUUID()}"
-        serverA = Conduit(mongoContainer.connectionString, database, redisUri)
-        serverB = Conduit(mongoContainer.connectionString, database, redisUri)
-        profilesA = serverA.store<Profile>("profiles")
-        profilesB = serverB.store<Profile>("profiles")
+        instanceA = Conduit(mongoContainer.connectionString, database, redisUri)
+        instanceB = Conduit(mongoContainer.connectionString, database, redisUri)
+        profilesA = instanceA.store<Profile>("profiles")
+        profilesB = instanceB.store<Profile>("profiles")
         awaitSubscribers(profilesA, 2)
     }
 
     @AfterEach
     fun close() {
-        serverA.close()
-        serverB.close()
+        instanceA.close()
+        instanceB.close()
     }
 
     @Test
-    fun `update on one server is seen by the other`() {
+    fun `update on one instance is seen by the other`() {
         val uuid = UUID.randomUUID()
         profilesA.insert(Profile(uuid, "Steve"))
         assertEquals(0, profilesB.get(uuid)?.coins)
@@ -123,7 +123,7 @@ class StoreTest {
     }
 
     @Test
-    fun `find by field sees changes from other server`() {
+    fun `find by field sees changes from other instance`() {
         val uuid = UUID.randomUUID()
         profilesA.insert(Profile(uuid, "Steve"))
         assertEquals(uuid, profilesB.findOne(Profile::name, "Steve")?.uuid)
@@ -186,7 +186,7 @@ class StoreTest {
     }
 
     @Test
-    fun `delete and save are seen by the other server`() {
+    fun `delete and save are seen by the other instance`() {
         val uuid = UUID.randomUUID()
         profilesA.save(Profile(uuid, "Steve"))
         awaitUntil { profilesB.get(uuid) != null }
@@ -253,10 +253,10 @@ class StoreTest {
     @Test
     fun `publish and subscribe through conduit`() {
         val received = LinkedBlockingQueue<Punishment>()
-        serverB.subscribe<Punishment>("kick") { received.add(it) }
+        instanceB.subscribe<Punishment>("kick") { received.add(it) }
         awaitUntil { Jedis(URI(redisUri)).use { it.pubsubNumSub("kick")["kick"] ?: 0L } == 1L }
 
-        serverA.publish("kick", Punishment("BAN", "Cheating"))
+        instanceA.publish("kick", Punishment("BAN", "Cheating"))
 
         assertEquals(Punishment("BAN", "Cheating"), received.poll(5, TimeUnit.SECONDS))
     }
@@ -270,7 +270,7 @@ class StoreTest {
 
     @Test
     fun `read only store returns the interface and edits through update`() {
-        val accounts: Store<Account, AccountData> = serverA.store<Account, AccountData>("accounts")
+        val accounts: Store<Account, AccountData> = instanceA.store<Account, AccountData>("accounts")
         val uuid = UUID.randomUUID()
         accounts.insert(AccountData(uuid))
 

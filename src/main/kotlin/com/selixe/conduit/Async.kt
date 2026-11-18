@@ -8,7 +8,7 @@ private val executor = Executors.newVirtualThreadPerTaskExecutor()
 /**
  * Runs [block] on a virtual thread.
  *
- * Use it to keep blocking calls, such as database reads, off the main thread.
+ * Use it to keep blocking calls, such as database reads, off the calling thread.
  * If [block] throws, the returned future completes exceptionally.
  */
 fun <T> async(block: () -> T): CompletableFuture<T> {

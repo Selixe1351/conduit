@@ -49,7 +49,7 @@ class Conduit(mongoUri: String, database: String, redisUri: String? = null) : Cl
     }
 
     /**
-     * Sends [message] as JSON to every subscriber of [channel] on every server.
+     * Sends [message] as JSON to every subscriber of [channel] on every instance.
      *
      * @return the number of subscribers that received it
      */

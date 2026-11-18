@@ -17,9 +17,9 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.time.Duration
 
 /**
- * A MongoDB collection with a cache that stays in sync across servers.
+ * A MongoDB collection with a cache that stays in sync across application instances.
  *
- * Reads are cached. Writes go to MongoDB first, then every server drops the cached lookups
+ * Reads are cached. Writes go to MongoDB first, then every instance drops the cached lookups
  * the write could affect, so the next read loads fresh data.
  *
  * Reads return [R]. Values can only be changed inside [update], which hands out the stored
@@ -89,7 +89,7 @@ class Store<R : Any, T : R>(
     /**
      * Loads the value with this id, lets [change] edit it, and saves it.
      *
-     * If another server changes the same value at the same time, the save is rejected and
+     * If another instance changes the same value at the same time, the save is rejected and
      * [change] runs again on the fresh value, so no write is lost. Because of that, [change]
      * should only edit the value and not cause side effects.
      *
@@ -119,7 +119,7 @@ class Store<R : Any, T : R>(
         return true
     }
 
-    /** Clears the cache on every server. Call it after writing to [collection] directly. */
+    /** Clears the cache on every instance. Call it after writing to [collection] directly. */
     fun invalidateAll() {
         sync(Change(all = true))
     }
