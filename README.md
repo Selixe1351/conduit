@@ -4,13 +4,14 @@ Save your data in MongoDB and keep it in sync across all your servers. Java 21+.
 
 ## Install
 
-```
-./gradlew publishToMavenLocal
-```
-
 ```groovy
-repositories { mavenLocal() }
-dependencies { implementation 'com.selixe.conduit:conduit:0.1.0' }
+repositories {
+    maven { url 'https://repo.selixe.com/repository/api/' }
+}
+
+dependencies {
+    implementation 'com.selixe.conduit:conduit:1.0.0'
+}
 ```
 
 ## 1. Describe your data
