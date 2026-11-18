@@ -16,22 +16,27 @@ dependencies {
 
 ## 1. Describe your data
 
+A read-only interface, and the class that implements it:
+
 ```kotlin
-data class Order(val product: String, val amount: Int)
+interface IUser {
+    val id: UUID
+    val name: String
+    val balance: Long
+}
 
 data class User(
-    @param:BsonId val id: UUID,
-    var name: String,
-    var balance: Long = 0,
-    val orders: MutableList<Order> = mutableListOf()
-)
+    @Identifier override val id: UUID,
+    override var name: String,
+    override var balance: Long = 0
+) : IUser
 ```
 
 ## 2. Connect on startup
 
 ```kotlin
 val conduit = Conduit("mongodb://localhost:27017", "shop", "redis://localhost:6379")
-val users = conduit.store<User>("users")
+val users = conduit.store<IUser, User>("users")
 ```
 
 ## 3. Use it
@@ -41,15 +46,12 @@ users.insert(User(id, "Alice"))
 
 val user = users.get(id)
 
-users.update(id) {
-    it.balance += 100
-    it.orders.add(Order("book", 1))
-}
+users.update(id) { it.balance += 100 }
 
 users.delete(id)
 ```
 
-Every instance sees the change on its next read.
+`get` returns the read-only `IUser`, so `users.get(id)!!.balance += 100` does not compile. Only `update` lets you change data. Every instance sees the change on its next read.
 
 ## 4. Close on shutdown
 
@@ -57,44 +59,39 @@ Every instance sees the change on its next read.
 conduit.close()
 ```
 
-## Read-only (recommended)
+## Related data
 
-Give your data a read-only interface so it can only be changed inside `update`:
+Keep data that grows, like orders, in its own store and point back to the owner:
 
 ```kotlin
-interface User {
-    val id: UUID
-    val balance: Long
-    val orders: List<Order>
-}
+data class Order(
+    @Identifier val id: UUID,
+    val userId: UUID,
+    val product: String
+)
 
-data class UserData(
-    @param:BsonId override val id: UUID,
-    override var balance: Long = 0,
-    override val orders: MutableList<Order> = mutableListOf()
-) : User
+val orders = conduit.store<Order>("orders")
 
-val users = conduit.store<User, UserData>("users")
-
-users.get(id)!!.balance += 100          // does not compile
-users.update(id) { it.balance += 100 }  // works
+orders.insert(Order(UUID.randomUUID(), userId, "book"))
+val userOrders = orders.find(Order::userId, userId)
 ```
+
+Small data that belongs to one value, like settings, can live inside it as a nested class.
 
 ## More
 
 | | |
 |---|---|
 | `users.all()` | every value |
-| `users.findOne(User::name, "Alice")` | search by a field |
-| `users.find(User::balance, 100)` | all matches |
+| `users.findOne(IUser::name, "Alice")` | search by a field |
+| `users.find(IUser::balance, 100)` | all matches |
 | `conduit.publish("events", Event(id))` | send a message to every instance |
 | `conduit.subscribe<Event>("events") { }` | receive it |
 | `async { }` | run something on a background thread |
 
 ## Rules
 
-- Mark the id with `@param:BsonId`.
-- Only change data inside `update { }`. Changes made anywhere else are not saved.
+- Mark the id with `@Identifier`.
 - Give new fields a default value so existing documents still load.
 
 ## License
