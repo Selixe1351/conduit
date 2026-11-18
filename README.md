@@ -10,7 +10,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.selixe.conduit:conduit:1.1.0'
+    implementation 'com.selixe.conduit:conduit:1.2.0'
 }
 ```
 

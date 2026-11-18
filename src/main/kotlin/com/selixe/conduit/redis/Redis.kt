@@ -2,6 +2,8 @@ package com.selixe.conduit.redis
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonTypeRef
 import redis.clients.jedis.Jedis
@@ -24,7 +26,10 @@ class Redis(private val uri: String) : Closeable {
 
     val client: RedisClient = RedisClient.create(URI(uri))
 
-    private val mapper = jacksonObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    private val mapper = jacksonObjectMapper()
+        .registerModule(JavaTimeModule())
+        .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     private val logger = System.getLogger("Conduit")
     private val lock = Any()
     private val handlers = ConcurrentHashMap<String, CopyOnWriteArrayList<Handler>>()

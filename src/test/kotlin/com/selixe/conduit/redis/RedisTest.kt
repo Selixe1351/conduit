@@ -10,6 +10,8 @@ import redis.clients.jedis.Jedis
 import redis.clients.jedis.args.ClientType
 import redis.clients.jedis.params.ClientKillParams
 import java.net.URI
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -20,6 +22,8 @@ import kotlin.test.assertNull
 class RedisTest {
 
     data class BalanceUpdate(val uuid: UUID, val balance: Long)
+
+    data class Timed(val at: Instant, val after: Duration)
 
     companion object {
         @Container
@@ -63,6 +67,18 @@ class RedisTest {
         redis.publish("batch", updates)
 
         assertEquals(updates, received.poll(5, TimeUnit.SECONDS))
+    }
+
+    @Test
+    fun `java time values are sent`() {
+        val received = LinkedBlockingQueue<Timed>()
+        redis.subscribe<Timed>("time") { received.add(it) }
+        awaitSubscribers("time", 1)
+
+        val message = Timed(Instant.parse("2026-01-01T12:00:00.123Z"), Duration.ofDays(7))
+        redis.publish("time", message)
+
+        assertEquals(message, received.poll(5, TimeUnit.SECONDS))
     }
 
     @Test
