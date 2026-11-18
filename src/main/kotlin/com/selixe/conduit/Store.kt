@@ -4,6 +4,7 @@ import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.FindOneAndReplaceOptions
 import com.selixe.conduit.cache.cache
+import com.selixe.conduit.mongo.identifierField
 import com.selixe.conduit.redis.Redis
 import org.bson.BsonDocumentReader
 import org.bson.BsonDocumentWrapper
@@ -39,8 +40,8 @@ class Store<R : Any, T : R>(
     private val documents = collection.withDocumentClass(Document::class.java)
     private val documentCodec = collection.codecRegistry.get(Document::class.java)
     private val valueCodec = collection.codecRegistry.get(collection.documentClass)
-    private val idProperty = collection.documentClass.kotlin.primaryConstructor
-        ?.parameters?.find { it.findAnnotation<BsonId>() != null }?.name
+    private val idProperty = identifierField(collection.documentClass)
+        ?: collection.documentClass.kotlin.primaryConstructor?.parameters?.find { it.findAnnotation<BsonId>() != null }?.name
     private val cache = cache<String, List<Document>>(maxSize = maxSize, expireAfterWrite = expireAfterWrite)
 
     init {

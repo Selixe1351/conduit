@@ -10,19 +10,27 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.ReturnDocument
 import org.bson.UuidRepresentation
+import org.bson.codecs.configuration.CodecRegistries
 import org.bson.conversions.Bson
 import java.io.Closeable
 
 /**
  * MongoDB connection to a single database.
  *
- * Kotlin data classes are mapped automatically. UUIDs are stored in the standard binary format.
+ * Kotlin data classes are mapped automatically. The property marked with
+ * [com.selixe.conduit.Identifier] is stored as `_id`. UUIDs are stored in the standard binary format.
  */
 class Mongo(uri: String, databaseName: String) : Closeable {
 
     val client: MongoClient = MongoClients.create(
         MongoClientSettings.builder()
             .applyConnectionString(ConnectionString(uri))
+            .codecRegistry(
+                CodecRegistries.fromRegistries(
+                    CodecRegistries.fromProviders(IdentifierCodecProvider()),
+                    MongoClientSettings.getDefaultCodecRegistry()
+                )
+            )
             .uuidRepresentation(UuidRepresentation.STANDARD)
             .build()
     )

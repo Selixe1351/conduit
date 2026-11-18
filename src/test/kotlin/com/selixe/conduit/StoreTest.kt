@@ -3,7 +3,6 @@ package com.selixe.conduit
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
 import org.bson.Document
-import org.bson.codecs.pojo.annotations.BsonId
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -36,7 +35,7 @@ class StoreTest {
     data class Punishment(val type: String, val reason: String)
 
     data class Profile(
-        @param:BsonId val uuid: UUID,
+        @Identifier val uuid: UUID,
         var name: String,
         var rank: Rank = Rank.DEFAULT,
         var coins: Long = 0,
@@ -48,17 +47,19 @@ class StoreTest {
         val firstJoin: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
     )
 
-    interface Account {
+    interface IAccount {
         val uuid: UUID
         val coins: Long
         val punishments: List<Punishment>
     }
 
-    data class AccountData(
-        @param:BsonId override val uuid: UUID,
+    data class Account(
+        @Identifier override val uuid: UUID,
         override var coins: Long = 0,
         override val punishments: MutableList<Punishment> = mutableListOf()
-    ) : Account
+    ) : IAccount
+
+    data class Order(@Identifier val id: UUID, val userId: UUID, val product: String)
 
     companion object {
         @Container
@@ -270,19 +271,46 @@ class StoreTest {
 
     @Test
     fun `read only store returns the interface and edits through update`() {
-        val accounts: Store<Account, AccountData> = instanceA.store<Account, AccountData>("accounts")
+        val accounts: Store<IAccount, Account> = instanceA.store<IAccount, Account>("accounts")
         val uuid = UUID.randomUUID()
-        accounts.insert(AccountData(uuid))
+        accounts.insert(Account(uuid))
 
-        val updated: Account? = accounts.update(uuid) {
+        val updated: IAccount? = accounts.update(uuid) {
             it.coins += 100
             it.punishments.add(Punishment("BAN", "Cheating"))
         }
 
-        val account: Account = accounts.findOne(Account::uuid, uuid)!!
+        val account: IAccount = accounts.findOne(IAccount::uuid, uuid)!!
         assertEquals(100, updated?.coins)
         assertEquals(100, account.coins)
         assertEquals(1, accounts.get(uuid)?.punishments?.size)
+    }
+
+    @Test
+    fun `identifier is stored as _id`() {
+        val uuid = UUID.randomUUID()
+        profilesA.insert(Profile(uuid, "Steve"))
+
+        val raw = profilesA.collection.withDocumentClass(Document::class.java).find().first()!!
+
+        assertEquals(uuid, raw["_id"])
+        assertNull(raw["uuid"])
+    }
+
+    @Test
+    fun `references to another store are synced`() {
+        val ordersA = instanceA.store<Order>("orders")
+        val ordersB = instanceB.store<Order>("orders")
+        awaitSubscribers(ordersA, 2)
+
+        val userId = UUID.randomUUID()
+        assertTrue(ordersB.find(Order::userId, userId).isEmpty())
+
+        ordersA.insert(Order(UUID.randomUUID(), userId, "book"))
+        ordersA.insert(Order(UUID.randomUUID(), userId, "pen"))
+
+        awaitUntil { ordersB.find(Order::userId, userId).size == 2 }
+        assertEquals(1, ordersB.find(Order::product, "pen").size)
     }
 
     @Test
