@@ -1,0 +1,34 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+    id 'java-library'
+}
+
+group = 'com.selixe.conduit'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+dependencies {
+    api 'org.mongodb:mongodb-driver-sync:5.14.0'
+    api 'org.mongodb:bson-kotlin:5.14.0'
+    implementation 'org.jetbrains.kotlin:kotlin-reflect'
+    api 'redis.clients:jedis:8.0.2'
+    api 'com.github.ben-manes.caffeine:caffeine:3.3.1'
+    api 'com.fasterxml.jackson.module:jackson-module-kotlin:2.20.0'
+
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testImplementation 'org.testcontainers:testcontainers-mongodb:2.0.2'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
